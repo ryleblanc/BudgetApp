@@ -11,7 +11,7 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
     <link rel="manifest" href="./manifest.webmanifest">
-
+    
     <meta name="theme-color" content="#4f46e5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -24,100 +24,17 @@
 
     <script>
       (function () {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.platform) ||
-          (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+        const fieldSelector = 'input[type="number"], input[type="text"], input:not([type])';
+        const inputs = document.querySelectorAll(fieldSelector);
 
-        function emitValueChange(input) {
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-
-        function toggleInputSign(input) {
-          if (!input) return;
-
-          const value = (input.value || '').trim();
-
-          if (!value || value === '-' || value === '+') {
-            input.value = '-';
-            emitValueChange(input);
-            return;
-          }
-
-          if (value.startsWith('-')) {
-            input.value = value.slice(1);
-          } else {
-            input.value = '-' + value.replace(/^\+/, '');
-          }
-
-          emitValueChange(input);
-          input.focus();
-        }
-
-        function isNumericInput(input) {
-          if (!input) return false;
-          const name = (input.name || input.id || input.placeholder || '').toLowerCase();
-          return input.type === 'number' ||
-            (input.type === 'text' && /(amount|budget|expense|income|balance|value|cost|total|payment|debt|credit|loan)/i.test(name));
-        }
-
-        function installVisibleToggle(input) {
-          if (!input || input.dataset.signToggleInstalled === 'true') return;
-          input.dataset.signToggleInstalled = 'true';
-
+        inputs.forEach((input) => {
+          input.type = 'text';
           input.setAttribute('inputmode', 'decimal');
-          if (!input.hasAttribute('step')) input.setAttribute('step', 'any');
-
-          const wrapper = input.parentElement || document.body;
-          if (getComputedStyle(wrapper).position === 'static') {
-            wrapper.style.position = 'relative';
-          }
-
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.textContent = '+/-';
-          button.setAttribute('aria-label', 'Toggle sign');
-          button.style.position = 'absolute';
-          button.style.right = '10px';
-          button.style.top = '50%';
-          button.style.transform = 'translateY(-50%)';
-          button.style.height = '28px';
-          button.style.minWidth = '36px';
-          button.style.border = '1px solid rgba(15, 23, 42, 0.2)';
-          button.style.borderRadius = '6px';
-          button.style.background = '#f8fafc';
-          button.style.color = '#0f172a';
-          button.style.fontWeight = '700';
-          button.style.fontSize = '14px';
-          button.style.cursor = 'pointer';
-          button.style.zIndex = '10';
-          button.style.pointerEvents = 'auto';
-
-          button.addEventListener('click', function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-            toggleInputSign(input);
-          });
-
-          input.style.paddingRight = '52px';
-          input.parentElement.appendChild(button);
-
-          // Keep the button visible even when the native iOS keyboard is present.
-          input.addEventListener('focus', function () {
-            button.style.display = 'inline-flex';
-          });
-          input.addEventListener('blur', function () {
-            setTimeout(function () { button.style.display = 'inline-flex'; }, 50);
-          });
-        }
-
-        function scanInputs() {
-          document.querySelectorAll('input').forEach(function (input) {
-            if (isNumericInput(input)) installVisibleToggle(input);
-          });
-        }
-
-        scanInputs();
-        new MutationObserver(scanInputs).observe(document.body, { childList: true, subtree: true });
+          input.setAttribute('pattern', '[0-9]*');
+          input.setAttribute('autocomplete', 'off');
+          input.setAttribute('autocorrect', 'off');
+          input.setAttribute('autocapitalize', 'none');
+        });
       })();
     </script>
   </body>
