@@ -21,5 +21,177 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <script>
+      (function () {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.platform) ||
+          (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+
+        const toolbarId = 'budgetapp-ios-toolbar';
+
+        function ensureToolbar() {
+          let toolbar = document.getElementById(toolbarId);
+          if (!toolbar) {
+            toolbar = document.createElement('div');
+            toolbar.id = toolbarId;
+            toolbar.setAttribute('role', 'toolbar');
+            toolbar.setAttribute('aria-label', 'Numeric input controls');
+            toolbar.style.position = 'fixed';
+            toolbar.style.left = '0';
+            toolbar.style.right = '0';
+            toolbar.style.bottom = '0';
+            toolbar.style.height = '48px';
+            toolbar.style.display = 'none';
+            toolbar.style.alignItems = 'center';
+            toolbar.style.justifyContent = 'space-between';
+            toolbar.style.padding = '0 12px';
+            toolbar.style.background = '#1f2937';
+            toolbar.style.color = '#fff';
+            toolbar.style.borderTop = '1px solid rgba(255,255,255,0.15)';
+            toolbar.style.boxShadow = '0 -2px 12px rgba(0,0,0,0.18)';
+            toolbar.style.zIndex = '2147483647';
+            toolbar.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+            toolbar.style.webkitUserSelect = 'none';
+            toolbar.style.userSelect = 'none';
+
+            const negateButton = document.createElement('button');
+            negateButton.type = 'button';
+            negateButton.textContent = '+/-';
+            negateButton.style.flex = '1';
+            negateButton.style.height = '100%';
+            negateButton.style.background = 'transparent';
+            negateButton.style.color = '#fff';
+            negateButton.style.fontSize = '18px';
+            negateButton.style.fontWeight = '700';
+            negateButton.style.border = 'none';
+            negateButton.style.cursor = 'pointer';
+            negateButton.dataset.action = 'toggle-sign';
+
+            const doneButton = document.createElement('button');
+            doneButton.type = 'button';
+            doneButton.textContent = 'Done';
+            doneButton.style.minWidth = '84px';
+            doneButton.style.height = '100%';
+            doneButton.style.background = 'transparent';
+            doneButton.style.color = '#60a5fa';
+            doneButton.style.fontSize = '17px';
+            doneButton.style.fontWeight = '600';
+            doneButton.style.border = 'none';
+            doneButton.style.cursor = 'pointer';
+            doneButton.dataset.action = 'done';
+
+            toolbar.appendChild(negateButton);
+            toolbar.appendChild(doneButton);
+            document.body.appendChild(toolbar);
+          }
+
+          return toolbar;
+        }
+
+        function hideToolbar() {
+          const toolbar = document.getElementById(toolbarId);
+          if (toolbar) toolbar.style.display = 'none';
+        }
+
+        function toggleInputSign(input) {
+          if (!input) return;
+
+          const original = input.value || '';
+          const trimmed = original.trim();
+
+          if (!trimmed || trimmed === '-' || trimmed === '+') {
+            input.value = '-';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            return;
+          }
+
+          const parsed = Number.parseFloat(trimmed);
+          if (!Number.isFinite(parsed)) {
+            if (trimmed.startsWith('-')) {
+              input.value = trimmed.slice(1);
+            } else {
+              input.value = '-' + trimmed.replace(/^[+]/, '');
+            }
+          } else {
+            input.value = String(parsed * -1);
+          }
+
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        function installToolbarHandlers() {
+          const toolbar = ensureToolbar();
+
+          toolbar.onclick = function (event) {
+            const button = event.target.closest('button');
+            if (!button) return;
+
+            const active = document.activeElement;
+            if (!active || !('value' in active)) {
+              return;
+            }
+
+            if (button.dataset.action === 'toggle-sign') {
+              toggleInputSign(active);
+            }
+
+            if (button.dataset.action === 'done') {
+              hideToolbar();
+              active.blur();
+            }
+          };
+        }
+
+        function enhanceInput(input) {
+          if (!input || input.dataset.budgetAppToolbarBound === 'true') return;
+          input.dataset.budgetAppToolbarBound = 'true';
+          input.setAttribute('inputmode', 'decimal');
+          if (!input.hasAttribute('step')) input.setAttribute('step', 'any');
+
+          input.addEventListener('focus', function () {
+            if (!isIOS) return;
+            const toolbar = ensureToolbar();
+            const rect = this.getBoundingClientRect();
+            toolbar.style.display = 'flex';
+            toolbar.style.bottom = 'env(safe-area-inset-bottom, 0px)';
+            toolbar.style.left = '0';
+            toolbar.style.right = '0';
+            toolbar.style.width = '100%';
+            if (rect.bottom > window.innerHeight - 220) {
+              toolbar.style.top = 'auto';
+            }
+          });
+
+          input.addEventListener('blur', function () {
+            if (!isIOS) return;
+            hideToolbar();
+          });
+        }
+
+        function scanInputs() {
+          const inputs = document.querySelectorAll('input[type="number"], input[type="text"], input:not([type])');
+          inputs.forEach((input) => {
+            const isNumeric = input.type === 'number' ||
+              /amount|price|cost|total|balance|expense|income|debt|payment|budget|value/i.test(input.name || input.id || input.placeholder || '');
+            if (isNumeric) enhanceInput(input);
+          });
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function () {
+            installToolbarHandlers();
+            scanInputs();
+          });
+        } else {
+          installToolbarHandlers();
+          scanInputs();
+        }
+
+        new MutationObserver(function () {
+          scanInputs();
+        }).observe(document.body, { childList: true, subtree: true });
+      })();
+    </script>
   </body>
 </html>
