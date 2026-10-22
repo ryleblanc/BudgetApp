@@ -11,7 +11,7 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg">
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
     <link rel="manifest" href="./manifest.webmanifest">
-    
+
     <meta name="theme-color" content="#4f46e5" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -27,170 +27,97 @@
         const isIOS = /iPad|iPhone|iPod/.test(navigator.platform) ||
           (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
 
-        const toolbarId = 'budgetapp-ios-toolbar';
-
-        function ensureToolbar() {
-          let toolbar = document.getElementById(toolbarId);
-          if (!toolbar) {
-            toolbar = document.createElement('div');
-            toolbar.id = toolbarId;
-            toolbar.setAttribute('role', 'toolbar');
-            toolbar.setAttribute('aria-label', 'Numeric input controls');
-            toolbar.style.position = 'fixed';
-            toolbar.style.left = '0';
-            toolbar.style.right = '0';
-            toolbar.style.bottom = '0';
-            toolbar.style.height = '48px';
-            toolbar.style.display = 'none';
-            toolbar.style.alignItems = 'center';
-            toolbar.style.justifyContent = 'space-between';
-            toolbar.style.padding = '0 12px';
-            toolbar.style.background = '#1f2937';
-            toolbar.style.color = '#fff';
-            toolbar.style.borderTop = '1px solid rgba(255,255,255,0.15)';
-            toolbar.style.boxShadow = '0 -2px 12px rgba(0,0,0,0.18)';
-            toolbar.style.zIndex = '2147483647';
-            toolbar.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
-            toolbar.style.webkitUserSelect = 'none';
-            toolbar.style.userSelect = 'none';
-
-            const negateButton = document.createElement('button');
-            negateButton.type = 'button';
-            negateButton.textContent = '+/-';
-            negateButton.style.flex = '1';
-            negateButton.style.height = '100%';
-            negateButton.style.background = 'transparent';
-            negateButton.style.color = '#fff';
-            negateButton.style.fontSize = '18px';
-            negateButton.style.fontWeight = '700';
-            negateButton.style.border = 'none';
-            negateButton.style.cursor = 'pointer';
-            negateButton.dataset.action = 'toggle-sign';
-
-            const doneButton = document.createElement('button');
-            doneButton.type = 'button';
-            doneButton.textContent = 'Done';
-            doneButton.style.minWidth = '84px';
-            doneButton.style.height = '100%';
-            doneButton.style.background = 'transparent';
-            doneButton.style.color = '#60a5fa';
-            doneButton.style.fontSize = '17px';
-            doneButton.style.fontWeight = '600';
-            doneButton.style.border = 'none';
-            doneButton.style.cursor = 'pointer';
-            doneButton.dataset.action = 'done';
-
-            toolbar.appendChild(negateButton);
-            toolbar.appendChild(doneButton);
-            document.body.appendChild(toolbar);
-          }
-
-          return toolbar;
-        }
-
-        function hideToolbar() {
-          const toolbar = document.getElementById(toolbarId);
-          if (toolbar) toolbar.style.display = 'none';
+        function emitValueChange(input) {
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         function toggleInputSign(input) {
           if (!input) return;
 
-          const original = input.value || '';
-          const trimmed = original.trim();
+          const value = (input.value || '').trim();
 
-          if (!trimmed || trimmed === '-' || trimmed === '+') {
+          if (!value || value === '-' || value === '+') {
             input.value = '-';
-            input.dispatchEvent(new Event('input', { bubbles: true }));
+            emitValueChange(input);
             return;
           }
 
-          const parsed = Number.parseFloat(trimmed);
-          if (!Number.isFinite(parsed)) {
-            if (trimmed.startsWith('-')) {
-              input.value = trimmed.slice(1);
-            } else {
-              input.value = '-' + trimmed.replace(/^[+]/, '');
-            }
+          if (value.startsWith('-')) {
+            input.value = value.slice(1);
           } else {
-            input.value = String(parsed * -1);
+            input.value = '-' + value.replace(/^\+/, '');
           }
 
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
+          emitValueChange(input);
+          input.focus();
         }
 
-        function installToolbarHandlers() {
-          const toolbar = ensureToolbar();
-
-          toolbar.onclick = function (event) {
-            const button = event.target.closest('button');
-            if (!button) return;
-
-            const active = document.activeElement;
-            if (!active || !('value' in active)) {
-              return;
-            }
-
-            if (button.dataset.action === 'toggle-sign') {
-              toggleInputSign(active);
-            }
-
-            if (button.dataset.action === 'done') {
-              hideToolbar();
-              active.blur();
-            }
-          };
+        function isNumericInput(input) {
+          if (!input) return false;
+          const name = (input.name || input.id || input.placeholder || '').toLowerCase();
+          return input.type === 'number' ||
+            (input.type === 'text' && /(amount|budget|expense|income|balance|value|cost|total|payment|debt|credit|loan)/i.test(name));
         }
 
-        function enhanceInput(input) {
-          if (!input || input.dataset.budgetAppToolbarBound === 'true') return;
-          input.dataset.budgetAppToolbarBound = 'true';
+        function installVisibleToggle(input) {
+          if (!input || input.dataset.signToggleInstalled === 'true') return;
+          input.dataset.signToggleInstalled = 'true';
+
           input.setAttribute('inputmode', 'decimal');
           if (!input.hasAttribute('step')) input.setAttribute('step', 'any');
 
-          input.addEventListener('focus', function () {
-            if (!isIOS) return;
-            const toolbar = ensureToolbar();
-            const rect = this.getBoundingClientRect();
-            toolbar.style.display = 'flex';
-            toolbar.style.bottom = 'env(safe-area-inset-bottom, 0px)';
-            toolbar.style.left = '0';
-            toolbar.style.right = '0';
-            toolbar.style.width = '100%';
-            if (rect.bottom > window.innerHeight - 220) {
-              toolbar.style.top = 'auto';
-            }
+          const wrapper = input.parentElement || document.body;
+          if (getComputedStyle(wrapper).position === 'static') {
+            wrapper.style.position = 'relative';
+          }
+
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = '+/-';
+          button.setAttribute('aria-label', 'Toggle sign');
+          button.style.position = 'absolute';
+          button.style.right = '10px';
+          button.style.top = '50%';
+          button.style.transform = 'translateY(-50%)';
+          button.style.height = '28px';
+          button.style.minWidth = '36px';
+          button.style.border = '1px solid rgba(15, 23, 42, 0.2)';
+          button.style.borderRadius = '6px';
+          button.style.background = '#f8fafc';
+          button.style.color = '#0f172a';
+          button.style.fontWeight = '700';
+          button.style.fontSize = '14px';
+          button.style.cursor = 'pointer';
+          button.style.zIndex = '10';
+          button.style.pointerEvents = 'auto';
+
+          button.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleInputSign(input);
           });
 
+          input.style.paddingRight = '52px';
+          input.parentElement.appendChild(button);
+
+          // Keep the button visible even when the native iOS keyboard is present.
+          input.addEventListener('focus', function () {
+            button.style.display = 'inline-flex';
+          });
           input.addEventListener('blur', function () {
-            if (!isIOS) return;
-            hideToolbar();
+            setTimeout(function () { button.style.display = 'inline-flex'; }, 50);
           });
         }
 
         function scanInputs() {
-          const inputs = document.querySelectorAll('input[type="number"], input[type="text"], input:not([type])');
-          inputs.forEach((input) => {
-            const isNumeric = input.type === 'number' ||
-              /amount|price|cost|total|balance|expense|income|debt|payment|budget|value/i.test(input.name || input.id || input.placeholder || '');
-            if (isNumeric) enhanceInput(input);
+          document.querySelectorAll('input').forEach(function (input) {
+            if (isNumericInput(input)) installVisibleToggle(input);
           });
         }
 
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', function () {
-            installToolbarHandlers();
-            scanInputs();
-          });
-        } else {
-          installToolbarHandlers();
-          scanInputs();
-        }
-
-        new MutationObserver(function () {
-          scanInputs();
-        }).observe(document.body, { childList: true, subtree: true });
+        scanInputs();
+        new MutationObserver(scanInputs).observe(document.body, { childList: true, subtree: true });
       })();
     </script>
   </body>
